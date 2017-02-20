@@ -18,7 +18,7 @@ rm(list=ls())
 rdn.seed <- 8101026
 train.file <- "./train.csv"
 test.file  <- "./test.csv"
-submission.file <- "gam_r_submission.csv"
+base.submission.file <- "titanic_submission.csv"
 
 #A list of titles from training and test sets
 titles <-c( "Mr", "Mrs","Miss","Master",
@@ -44,6 +44,7 @@ rm(train.file)
 test <- read_csv(test.file)
 rm(test.file)
 
+
 #consolidate both data sets to perform some substitutions
 train$test <- FALSE
 test$test <-TRUE
@@ -51,6 +52,10 @@ test$Survived <- -1
 
 full.data <- rbind(train,test)
 rm(train,test)
+
+#Now create the submission file
+pass.id <- full.data %>% filter(test) %>% select(PassengerId)
+submission <- data.frame(PassengerId = pass.id)
 
 #data cleaning and preprocessing
 
@@ -119,7 +124,12 @@ rf.model <- train(Survived~.,
                     savePredictions="final",
                     classProbs=TRUE
                   ))
-rf.pred <- predict(rf.model,x.train)
+#make an RF submission file
+submission$Survived <- predict(rf.model,x.test)
+levels(submission$Survived) <- c("0","1")
+#create a submission name
+submission.file <- paste0("rf",base.submission.file)
+write.csv(submission, file = submission.file, row.names=FALSE)
 
 gbm.model <- train(Survived~.,
                    data=x.train,
@@ -128,21 +138,13 @@ gbm.model <- train(Survived~.,
                      savePredictions="final",
                      classProbs=TRUE
                    ))
-gbm.pred <- predict(gbm.model,x.train)
-
-#combine using a GAM
-tmp.df <- data.frame(rf=rf.pred,gbm=gbm.pred,Survived=x.train$Survived)
-gam.model <- train(Survived~.,data=tmp.df,method="gam")
-
-rf.pred.test <-  predict(rf.model,x.test)
-gbm.pred.test <- predict(gbm.model,x.test)
-tmp.df.test <- data.frame(rf=rf.pred.test,gbm=gbm.pred.test)
-pass.id <- full.data %>% filter(test) %>% select(PassengerId)
-submission <- data.frame(PassengerId = pass.id)
-submission$Survived <- predict(gam.model,tmp.df.test)
-submission$Survived <- predict(rf.model,x.test)
+#and a GBM submission file
+submission$Survived <- predict(gbm.model,x.test)
 levels(submission$Survived) <- c("0","1")
+#create a submission name
+submission.file <- paste0("gbm",base.submission.file)
 write.csv(submission, file = submission.file, row.names=FALSE)
+
 
 
 
