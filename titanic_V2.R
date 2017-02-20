@@ -121,6 +121,7 @@ rf.model <- train(Survived~.,
                   data=x.train,
                   method="rf",
                   trControl=trainControl(
+                    method = "LOOCV",
                     savePredictions="final",
                     classProbs=TRUE
                   ))
