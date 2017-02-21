@@ -93,13 +93,15 @@ cleaned.data <- cleaned.data %>%
 #Repartition the data for analysis
 x.train <- cleaned.data %>% filter(!test) %>% select(-test) %>% 
   mutate(Survived = factor(Survived))
+#Note need to fix this imputation to something better
+x.train$Embarked[is.na(x.train$Embarked)] <- "S"
 levels(x.train$Survived) <- c("dead","alive")
 x.test <- cleaned.data %>% filter(test) %>% select(-Survived,-test) 
 
 #Now do some preProcessing
-pre.x.train <- preProcess(x.train,method=c("knnImpute"))
+pre.x.train <- preProcess(x.train,method=c("bagImpute"))
 x.train <- predict(pre.x.train,x.train)
-pre.x.test <-  preProcess(x.test,method=c("knnImpute"))
+pre.x.test <-  preProcess(x.test,method=c("bagImpute"))
 x.test <- predict(pre.x.test,x.test)
 
 #Now do the analysis
