@@ -36,6 +36,12 @@ rare.title.female.miss <- c("Mme","Ms")
 rare.title.female.mrs <- c("Lady","Mlle","the","Dona")
 royal.titles <- titles[c(5,11,12,16,17,18)]
 
+#Variables to focus on in the analysis
+analysis.vars <- c("test","Pclass","Age","Sex",
+                   "Parch","SibSp","Fare", 
+                   "Embarked", "title","Survived")
+
+
 # Now load and setup the data
 set.seed(rdn.seed)
 rm(rdn.seed)
@@ -74,46 +80,26 @@ full.data$title[full.data$title %in% rare.title.female.miss] <- "Miss"
 full.data$title[full.data$title %in% rare.title.female.mrs] <- "Mrs"
 full.data$title[full.data$title %in% rare.title.male] <- "Mr"
 
-
-#Now conduct a feature engineering and preprocessing of the data
-#as a function to run on training and testing data seperatly 
-#
-extractFeatures <- function(data) {
-  #variables to extract
-  features <- c("Pclass",
-                "Age",
-                "Sex",
-                "Parch",
-                "SibSp",
-                "Fare",
-                "Embarked",
-                "title")
-  fea <- data[,features]
-  
-  #create factors out of catagorical variables
-  fea$Pclass <- factor(fea$Pclass,ordered = TRUE)
-  fea$Sex      <- as.factor(fea$Sex)
-  fea$Embarked <- as.factor(fea$Embarked)
-  fea$title <- factor(fea$title,levels=titles)
-  fea$title <- droplevels(fea$title)
-
-  #make a family size variable
-  fea$family <- fea$SibSp+fea$Parch
-  fea$family <- cut(fea$family,breaks=c(0,1,2,3,4,10),include.lowest = TRUE,right=FALSE)
-
-  fea$SibSp <- fea$Parch <- fea$Embarked  <- NULL
-  return(fea)
-}
-
-x.train <- full.data %>% filter(!test) %>% extractFeatures()
-x.train$Survived <- as.factor(full.data$Survived[!full.data$test])
+cleaned.data <- full.data[,analysis.vars]
+cleaned.data <- cleaned.data %>% 
+        mutate(Pclass = factor(Pclass,ordered=TRUE)) %>% 
+        mutate(Sex = factor(Sex)) %>% 
+        mutate(Embarked = factor(Embarked)) %>% 
+        mutate(title = factor(title)) %>% 
+        mutate(family = SibSp + Parch) %>% 
+        mutate(family = cut(family,breaks=c(0,1,2,3,4,10),
+                            include.lowest = TRUE,right=FALSE))
+ 
+#Repartition the data for analysis
+x.train <- cleaned.data %>% filter(!test) %>% select(-test) %>% 
+  mutate(Survived = factor(Survived))
 levels(x.train$Survived) <- c("dead","alive")
-x.test <- full.data %>% filter(test) %>% select(-Survived) %>% extractFeatures()
+x.test <- cleaned.data %>% filter(test) %>% select(-Survived,-test) 
 
 #Now do some preProcessing
-pre.x.train <- preProcess(x.train,method=c("bagImpute"))
+pre.x.train <- preProcess(x.train,method=c("knnImpute"))
 x.train <- predict(pre.x.train,x.train)
-pre.x.test <-  preProcess(x.test,method=c("bagImpute"))
+pre.x.test <-  preProcess(x.test,method=c("knnImpute"))
 x.test <- predict(pre.x.test,x.test)
 
 #Now do the analysis
