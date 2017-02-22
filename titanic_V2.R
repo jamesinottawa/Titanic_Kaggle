@@ -142,13 +142,15 @@ x.train <- predict(pre.x.train, x.train)
 pre.x.test <-  preProcess(x.test, method = c("bagImpute"))
 x.test <- predict(pre.x.test, x.test)
 
+rf.x.train <- x.train %>% select(-royal)
 #Now do the analysis
 rf.model <- train(
   Survived ~ .,
-  data = x.train,
+  data = rf.x.train,
   method = "rf",
   trControl = trainControl(
-    method = "LOOCV",
+    method = "cv",
+    number = 100,
     savePredictions = "final",
     classProbs = TRUE
   )
@@ -157,19 +159,37 @@ rf.model <- train(
 submission$Survived <- predict(rf.model, x.test)
 levels(submission$Survived) <- c("0", "1")
 #create a submission name
-submission.file <- paste0("rf", base.submission.file)
+submission.file <- paste0("rf_", base.submission.file)
 write.csv(submission, file = submission.file, row.names = FALSE)
+
+svm.model <- train(Survived~., data=rf.x.train,method="svmRadial",
+                   preProcess=c("center","scale"),
+                   trControl=trainControl(
+                     method="cv",
+                     number=10,
+                     savePredictions = "final",
+                     classProbs = TRUE
+                   ))
+submission$Survived <- predict(svm.model, x.test)
+levels(submission$Survived) <- c("0", "1")
+#create a submission name
+submission.file <- paste0("svm_", base.submission.file)
+write.csv(submission, file = submission.file, row.names = FALSE)
+
 
 gbm.model <- train(
   Survived ~ .,
   data = x.train,
   method = "gbm",
-  trControl = trainControl(savePredictions = "final",
-                           classProbs = TRUE)
+  trControl = trainControl(
+    method = "cv",
+    number = 100,
+    savePredictions = "final",
+    classProbs = TRUE)
 )
 #and a GBM submission file
 submission$Survived <- predict(gbm.model, x.test)
 levels(submission$Survived) <- c("0", "1")
 #create a submission name
-submission.file <- paste0("gbm", base.submission.file)
+submission.file <- paste0("gbm_", base.submission.file)
 write.csv(submission, file = submission.file, row.names = FALSE)
