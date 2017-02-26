@@ -4,10 +4,15 @@
 # Author : James T.E. Chapman
 # Creation Date : 19 Feb 2017
 
-library(tidyverse)
+#library(tidyverse)
+library(dplyr)
+library(readr)
 library(stringr)
 library(caret)
 library(caretEnsemble)
+library(doParallel)
+
+registerDoParallel(cores=4)
 
 ## The usual
 rm(list = ls())
@@ -102,8 +107,7 @@ tmp <- str_split(full.data$Name, ",", simplify = TRUE)
 #extract last names
 full.data$lastName <- tmp[, 1]
 #extract titles
-full.data$title <-
-  str_split(tmp[, 2], boundary("word"), simplify = TRUE)[, 1]
+full.data$title <-  str_split(tmp[, 2], boundary("word"), simplify = TRUE)[, 1]
 rm(tmp)
 #make a marker for royal (i.e. upper class) titles
 full.data <- full.data %>% mutate(royal = title %in% royal.titles)
@@ -120,10 +124,10 @@ cleaned.data <- cleaned.data %>%
   mutate(Sex = factor(Sex)) %>%
   mutate(Embarked = factor(Embarked)) %>%
   mutate(title = factor(title)) %>%
-  mutate(family = SibSp + Parch) %>%
+  mutate(family = SibSp + Parch+1) %>%
   mutate(family = cut(
     family,
-    breaks = c(0, 1, 2, 3, 4, 10),
+    breaks = c(1, 2, 5, 11),
     include.lowest = TRUE,
     right = FALSE
   ))
@@ -147,7 +151,7 @@ rf.x.train <- x.train %>% select(-royal)
 rf.model <- train(
   Survived ~ .,
   data = rf.x.train,
-  method = "rf",
+  method = "cforest",
   trControl = trainControl(
     method = "cv",
     number = 100,
@@ -155,6 +159,7 @@ rf.model <- train(
     classProbs = TRUE
   )
 )
+
 #make an RF submission file
 submission$Survived <- predict(rf.model, x.test)
 levels(submission$Survived) <- c("0", "1")
@@ -165,8 +170,7 @@ write.csv(submission, file = submission.file, row.names = FALSE)
 svm.model <- train(Survived~., data=rf.x.train,method="svmRadial",
                    preProcess=c("center","scale"),
                    trControl=trainControl(
-                     method="cv",
-                     number=10,
+                     method="LOOCV",
                      savePredictions = "final",
                      classProbs = TRUE
                    ))
